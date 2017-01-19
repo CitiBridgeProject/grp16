@@ -8,7 +8,6 @@ create table login(
 
 create table user_saved_stock(
     user_id int(11),
-    stockname varchar(100),
     stocksymbol varchar(10),
     stockprice decimal(10,2),
     stockquantity int(5),
