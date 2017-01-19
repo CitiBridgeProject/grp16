@@ -14,6 +14,11 @@ create table user_saved_stock(
     FOREIGN KEY(user_id) REFERENCES login(user_id)
     );
     
+ create table stock(
+    stocksym varchar(10),
+    marketcap varchar(20)
+    );
+        
     insert into login values(1,"mohit","citi");
     insert into login values(2,"munir","citi");
     insert into login values(3,"tejal","citi");
