@@ -11,7 +11,7 @@ create table user_saved_stock(
     stocksymbol varchar(10),
     stockprice decimal(10,2),
     stockquantity int(5),
-    FOREIGN KEY(user_id) REFERENCES login(user_id),
+    FOREIGN KEY(user_id) REFERENCES user_data(user_id),
     FOREIGN KEY(stocksymbol) REFERENCES stock_for_cap(stocksymbol)
     );
     
