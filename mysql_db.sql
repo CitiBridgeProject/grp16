@@ -12,7 +12,7 @@ create table user_saved_stock(
     stockprice decimal(10,2),
     stockquantity int(5),
     FOREIGN KEY(user_id) REFERENCES login(user_id),
-    FOREIGN KEY(stocksymbol) REFERENCES stock_for_cap(stocksymbol),
+    FOREIGN KEY(stocksymbol) REFERENCES stock_for_cap(stocksymbol)
     );
     
 create table stock_for_Cap(
