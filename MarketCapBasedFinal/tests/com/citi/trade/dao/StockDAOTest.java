@@ -23,7 +23,6 @@ import com.mysql.jdbc.ResultSet;
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({ StockDAO.class, DBConnection.class })
 public class StockDAOTest {
-
 	@Test
 	public void testSaveStocks() throws SQLException {
 
