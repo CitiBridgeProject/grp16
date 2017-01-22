@@ -25,18 +25,21 @@
 		$rootScope.title = "Login";
 
 		$scope.formSubmit = function() {
-		
-		LoginService.login($scope.username, $scope.password).then(function(data){	
-			console.log("login function response data is : " + data);
+
+		LoginService.login($scope.username, $scope.password).then(function(data){
+			console.log('Login response from server : ' + data);
 		    if (data) {
+		    	console.log('Login successful');
 				$scope.error = '';
 				$scope.username = '';
 				$scope.password = '';
+				console.log('changing state to stock')
 				$state.go('stock', {userDetails: data});
 			} else {
-				$scope.error = "Incorrect username/password !";
+				console.log('Login failed');
+				$scope.error = " Incorrect username/password !";
 			}
-		})		
+		})
 		};
 
 	});
@@ -46,57 +49,76 @@
 		$rootScope.title = " Stock Picker ";
 		$rootScope.caps = [ "SmallCap", "MidCap", "LargeCap" ];
 		$scope.showRecommendedStockTable = false;
-		$scope.showloading=false;
-		//$scope.recommendedStockList;
-		//$scope.savedStockList;
+		$scope.showloading = false;
 		$scope.userId = $stateParams.userDetails.userId;
-		
+
 		$scope.showStockAsPerCap = function() {
-			$scope.showloading=true;
 			console.log('MarkeCap submit button is clicked');
+			$scope.showloading = true;
+			$scope.showRecommendedStockTable = false;
+			$scope.recommendedStockList = [];
 			var requestedCap = $scope.selectedCap;
 			console.log('RequestedCap : ' + requestedCap);
-			if(undefined != requestedCap)
-			var stockDetails = LoginService.getRecommendedStockLists(requestedCap);
-			console.log('stockDetails after login service : ' + stockDetails)	
-			
-			setTimeout(function() 
-		    {
-		   console.log('After timeout stockDetails : ' + stockDetails)	
-		   console.log('After timeout LoginService.getStockListForSelectedCAP() : ' + LoginService.getStockListForSelectedCAP());
-		   stockDetails = LoginService.getStockListForSelectedCAP();
-		   $scope.showloading=false;
-			if (undefined != stockDetails || stockDetails != "") {
-				$scope.recommendedStockList = stockDetails.stocks;
-				console.log('recommendedStockList from server : '+ $scope.recommendedStockList)
-				$scope.showloading=false;
-				$scope.showRecommendedStockTable = true;
+			if (undefined != requestedCap) {
+				LoginService.getRecommendedStockList(requestedCap).then(function(data){
+				console.log('Recommended stock data from server : ' + data)
+			    if (data) {
+			    	var stockDetails = data;
+			    	console.log('stockDetails after recommendation : ' + stockDetails)
+			    	$scope.showloading = false;
+			    	$scope.recommendedStockList = stockDetails.stocks;
+			    	console.log('recommendedStockList for table data : '+ $scope.recommendedStockList)
+			    	$scope.showloading = false;
+			    	$scope.showRecommendedStockTable = true;
+			    }
+				})
 			}
-		
-			}, 3000);
 
 		};
 		$scope.saveStocks = function() {
-			console.log('Save stock button clicked : '+ $scope.userId);
-			var isSuccess = LoginService.saveStockData($scope.recommendedStockList, $scope.userId);
-
-		};
-		
-		$scope.getSavedStocks = function() {
-			console.log('Fetch saved stock button clicked : ' + $stateParams.userDetails.userId);
-			var savedStocks = LoginService.fetchSavedStocks($scope.userId);
-			if (undefined != savedStocks.stocks || savedStocks.stocks != "") {
-				$scope.savedStockList = savedStocks.stocks;
+			console.log('Save stock button is clicked');
+			console.log('Current user in save function : '+ $scope.userId);
+			var userSelectedStocks = [];
+			var totalStocks = $scope.recommendedStockList;
+			for (i=0; i<totalStocks.length; i++) {
+				if (totalStocks[i].selected == true) {
+					quantity = document.getElementById("quantityField" + i).value;
+					userSelectedStocks.push({stockName:totalStocks[i].stocksymbol, stocksymbol:totalStocks[i].stocksymbol, stockprice:totalStocks[i].stockprice, stockquantity:quantity});
+				}
+			}
+			console.log('Length of userSelectedStocks : ' + userSelectedStocks.length);
+			if (userSelectedStocks.length > 0) {
+				console.log('userSelectedStocks : ' + userSelectedStocks);
+				LoginService.saveStocksForUser(userSelectedStocks, $scope.userId).then(function(data){
+				console.log('saveStocks response from server : ' + data)
+			    if (data) {
+			    	console.log('Stocks are saved successfully');
+			    }
+			})
 			}
 		};
-		
+
+		$scope.getSavedStocks = function() {
+			console.log('getSavedStocks button clicked');
+			console.log('Current user in getSavedStocks function : '+ $scope.userId);
+			console.log('In getSavedStocks function $scope.savedStockList : ' + $scope.savedStockList);
+			LoginService.getSavedStockList($scope.userId).then(function(data){
+				console.log('getSavedStocks response from server : ' + data)
+			    if (data) {
+			    	var savedStocks = data;
+			    	$scope.savedStockList = savedStocks.stocks;
+			    }
+			})
+		};
+
 		$scope.logout = function() {
-			console.log('Logout button clicked:');
+			console.log('Logout button clicked');
 			$scope.showRecommendedStockTable = false;
-			$scope.showloading = false;
-			$scope.recommendedStockList = "";
-			$scope.savedStockList = "";
+			$scope.recommendedStockList = [];
+			$scope.savedStockList = [];
 			$scope.userId = ""
+			console.log('Changing state to login');
+			$state.go('login');
 		};
 	});
 
@@ -104,9 +126,10 @@
 		var isAuthenticated = false;
 		var stockListForSelectedCAP = '';
 		var userSavedStockList = '';
-		
+
 		return {
 			login : function(username, password) {
+				console.log('Inside login function');
 				var deferred = $q.defer();
 				isAuthenticated = false;
 				$http({
@@ -116,87 +139,69 @@
 						user : username,
 						pass : password
 					}
-				}).success(function(data, status, headers, config) {
-					console.log("Login Success : " + data);
+				}).success(function(data) {
+					console.log('Login successful. Response from server : ' + data);
 					isAuthenticated = true;
-					$state.go('stock', {userDetails: data});
-				}).error(function(data, status, headers, config) {
-					console.log("Login failure : " + data);
+					deferred.resolve(data);
+				}).error(function(msg, code) {
+					console.log('Login failed. Response status code : ' + code);
 					isAuthenticated = false;
+					deferred.resolve(isAuthenticated);
 				});
-				deferred.resolve(isAuthenticated);
 				return deferred.promise;
 			},
-			
-			Authenticated : function() {
-				console.log('Authenticated flag value : ' + isAuthenticated);
-				return isAuthenticated;
-			},
-			
-			getStockListForSelectedCAP : function() {
-				console.log('stockListForSelectedCAP in getStockListForSelectedCAP :' + stockListForSelectedCAP);
-				return stockListForSelectedCAP;
-			},
-			
-			getRecommendedStockLists : function(requestedCap) {
+
+			getRecommendedStockList : function(requestedCap) {
+				console.log('Inside getRecommendedStockList function');
+				var deferred = $q.defer();
 				$http({
 					method : 'GET',
 					url : 'RecommendedStockServlet?selectedCap='+requestedCap
-				}).success(function(data, status, headers, config) {
-					console.log("success at stock details: " + data);
+				}).success(function(data) {
+					console.log('getRecommendedStockList request is successful. Response from server : ' + data);
 					stockListForSelectedCAP = data;
-				}).error(function(data, status, headers, config) {
-					console.log("failure at stock details: " + data);
-					stockListForSelectedCAP = data;
+					deferred.resolve(stockListForSelectedCAP);
+				}).error(function(msg, code) {
+					console.log('getRecommendedStockList request is failed. Response status code : ' + code);
+					deferred.resolve(false);
 				});
-				return stockListForSelectedCAP;
+				return deferred.promise;
 			},
-			
-			saveStockData : function(totalStocks, userId) {
-				console.log('Inside saveStockData function');
-				
-				var selectedData = "";
-				var selectedDataArr = [];
-				for (i=0; i<totalStocks.length; i++) {
-					if (totalStocks[i].selected == true) {
-						quantity = document.getElementById("quantityField" + i).value;
-						selectedData = selectedData + {stockName:totalStocks[i].stocksymbol, stocksymbol:totalStocks[i].stocksymbol, stockprice:totalStocks[i].stockprice, stockquantity:quantity} + ",";
-						selectedDataArr.push({stockName:totalStocks[i].stocksymbol, stocksymbol:totalStocks[i].stocksymbol, stockprice:totalStocks[i].stockprice, stockquantity:quantity});
-					}
-				}
-				
-				console.log('selectedData: ' + selectedData);
-				console.log('selectedDataArr: ' + selectedDataArr);
+
+			saveStocksForUser : function(selectedStockArray, userId) {
+				console.log('Inside saveStocksForUser function');
+				var deferred = $q.defer();
 				$http({
 					method : 'POST',
 					url : 'SaveStockServlet?userId='+userId,
 					data : {
-						selectedStocks : selectedDataArr
+						selectedStocks : selectedStockArray
 					}
-				}).success(function(data, status, headers, config) {
-					console.log("success at stock details : " + data);
-					stockListForSelectedCAP = data;
-				}).error(function(data, status, headers, config) {
-					console.log("failure at stock details : " + data);
-					stockListForSelectedCAP = data;
+				}).success(function(data) {
+					console.log('saveStocksForUser request is successful. Response from server : ' + data);
+					deferred.resolve(true);
+				}).error(function(msg, code) {
+					console.log('saveStocksForUser request is failed. Response status code :  ' + code);
+					deferred.resolve(false);
 				});
-				return stockListForSelectedCAP;
-				
+				return deferred.promise;
 			},
-			
-			fetchSavedStocks : function(userId) {
-				console.log('Inside fetchSavedStocks: '+userId);
+
+			getSavedStockList : function(userId) {
+				console.log('Inside getSavedStockList funtion');
+				var deferred = $q.defer();
 				$http({
 					method : 'GET',
 					url : 'FetchSavedStockServlet?userId='+userId
-				}).success(function(data, status, headers, config) {
-					console.log("success at fetchSavedStocks : " + data);
+				}).success(function(data) {
+					console.log('getSavedStockList request is successful. Response from server : ' + data);
 					userSavedStockList = data;
-				}).error(function(data, status, headers, config) {
-					console.log("failure at fetchSavedStocks : " + data);
-					userSavedStockList = data;
+					deferred.resolve(userSavedStockList);
+				}).error(function(msg, code) {
+					console.log('getSavedStockList request is failed. Response status code : ' + code);
+					deferred.resolve(false);
 				});
-				return userSavedStockList;
+				return deferred.promise;
 			}
 				};
 			});
